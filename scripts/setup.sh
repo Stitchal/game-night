@@ -82,12 +82,12 @@ done
 # ── Step 5: Port forwarding ───────────────────────────────────────────────────
 
 log "Starting port forwards (background)..."
-kubectl port-forward svc/eureka-server 8761:8761 &>/tmp/pf-eureka.log &
-kubectl port-forward svc/party-service  8081:8081 &>/tmp/pf-party.log &
-kubectl port-forward svc/player-service 8082:8082 &>/tmp/pf-player.log &
-kubectl port-forward svc/stats-service  8083:8083 &>/tmp/pf-stats.log &
-kubectl port-forward svc/prometheus     9090:9090 &>/tmp/pf-prometheus.log &
-kubectl port-forward svc/grafana        3000:3000 &>/tmp/pf-grafana.log &
+nohup kubectl port-forward svc/eureka-server 8761:8761 >/tmp/pf-eureka-server.log 2>&1 &
+nohup kubectl port-forward svc/party-service  8081:8081 >/tmp/pf-party-service.log  2>&1 &
+nohup kubectl port-forward svc/player-service 8082:8082 >/tmp/pf-player-service.log 2>&1 &
+nohup kubectl port-forward svc/stats-service  8083:8083 >/tmp/pf-stats-service.log  2>&1 &
+nohup kubectl port-forward svc/prometheus     9090:9090 >/tmp/pf-prometheus.log     2>&1 &
+nohup kubectl port-forward svc/grafana        3000:3000 >/tmp/pf-grafana.log        2>&1 &
 
 # ── Step 6: Summary ───────────────────────────────────────────────────────────
 

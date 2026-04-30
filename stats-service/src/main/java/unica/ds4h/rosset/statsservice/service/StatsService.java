@@ -64,7 +64,7 @@ public class StatsService {
     private String resolveUrl(String serviceName) {
         List<ServiceInstance> instances = discoveryClient.getInstances(serviceName);
         if (instances.isEmpty()) {
-            throw new IllegalStateException("No instances found for " + serviceName);
+            throw new RuntimeException("No instances found for " + serviceName);
         }
         return instances.get(0).getUri().toString();
     }
