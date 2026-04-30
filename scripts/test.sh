@@ -26,14 +26,25 @@ http_body() {
 }
 
 # Wait until a local port responds with any HTTP code (not 000), up to $2s
+# Restarts the port-forward for $3 (svc:port) if the process dies during waiting
 wait_http() {
     local url=$1
     local timeout=${2:-60}
+    local svc_entry=${3:-}
     local i=0
     while [ "$i" -lt "$timeout" ]; do
         code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "$url" 2>/dev/null)
         if [ "$code" != "000" ]; then
             return 0
+        fi
+        # If a svc:port was given, restart the port-forward if the process died
+        if [ -n "$svc_entry" ]; then
+            local pfsvc="${svc_entry%%:*}"
+            local pfport="${svc_entry##*:}"
+            if ! lsof -i ":$pfport" -sTCP:LISTEN -t >/dev/null 2>&1; then
+                nohup kubectl port-forward "svc/$pfsvc" "$pfport:$pfport" >"/tmp/pf-${pfsvc}.log" 2>&1 &
+                sleep 1
+            fi
         fi
         sleep 1
         i=$((i + 1))
@@ -70,6 +81,13 @@ done
 
 section "Port forwards"
 
+# Ensure all pods are actually ready before attempting port-forwards
+log "Waiting for all pods to be ready..."
+for deploy in eureka-server party-service player-service stats-service prometheus grafana; do
+    kubectl rollout status deployment/"$deploy" --timeout=180s 2>/dev/null || \
+        warn "$deploy rollout status timed out — proceeding anyway"
+done
+
 SVC_LIST="eureka-server:8761 party-service:8081 player-service:8082 stats-service:8083 prometheus:9090 grafana:3000"
 
 for entry in $SVC_LIST; do
@@ -81,6 +99,9 @@ for entry in $SVC_LIST; do
     fi
 done
 
+# Give port-forward processes time to bind their local ports
+sleep 3
+
 # Wait for each service to respond sequentially
 HEALTH_LIST="eureka-server:8761:/actuator/health party-service:8081:/actuator/health player-service:8082:/actuator/health stats-service:8083:/actuator/health prometheus:9090:/-/ready grafana:3000:/api/health"
 
@@ -90,10 +111,12 @@ for entry in $HEALTH_LIST; do
     port=$(echo "$entry" | cut -d: -f2)
     path=$(echo "$entry" | cut -d: -f3)
     url="http://localhost:${port}${path}"
-    if wait_http "$url" 120; then
+    timeout=180
+    if [ "$svc" = "eureka-server" ]; then timeout=240; fi
+    if wait_http "$url" "$timeout" "${svc}:${port}"; then
         ok "port reachable ($svc)"
     else
-        fail "port not reachable after 120s ($svc)"
+        fail "port not reachable after ${timeout}s ($svc)"
     fi
 done
 
@@ -172,8 +195,16 @@ fi
 section "Stats Service — nominal call"
 
 if [ -n "$PARTY_ID" ]; then
-    STATS=$(http_body "http://localhost:8083/stats/$PARTY_ID")
-    PLAYERS_COUNT=$(echo "$STATS" | grep -o '"playersCount":[0-9]*' | grep -o '[0-9]*')
+    # The circuit breaker may need a few seconds to close after startup; retry until
+    # we get a valid response or the 30s timeout expires.
+    STATS=""
+    PLAYERS_COUNT=""
+    for i in $(seq 1 30); do
+        STATS=$(http_body "http://localhost:8083/stats/$PARTY_ID")
+        PLAYERS_COUNT=$(echo "$STATS" | grep -o '"playersCount":[0-9]*' | grep -o '[0-9]*')
+        [ "$PLAYERS_COUNT" = "3" ] && break
+        sleep 1
+    done
     PARTY_NAME=$(echo "$STATS" | grep -o '"partyName":"[^"]*"' | cut -d'"' -f4)
 
     if [ "$PLAYERS_COUNT" = "3" ]; then

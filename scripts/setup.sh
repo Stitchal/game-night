@@ -89,6 +89,24 @@ nohup kubectl port-forward svc/stats-service  8083:8083 >/tmp/pf-stats-service.l
 nohup kubectl port-forward svc/prometheus     9090:9090 >/tmp/pf-prometheus.log     2>&1 &
 nohup kubectl port-forward svc/grafana        3000:3000 >/tmp/pf-grafana.log        2>&1 &
 
+# Give port-forward processes a moment to bind their local ports
+sleep 3
+
+log "Waiting for Eureka to be reachable on localhost:8761..."
+_i=0
+while [ "$_i" -lt 240 ]; do
+    _code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://localhost:8761/actuator/health" 2>/dev/null)
+    if [ "$_code" != "000" ]; then
+        log "Eureka is up (HTTP $_code)."
+        break
+    fi
+    sleep 1
+    _i=$((_i + 1))
+done
+if [ "$_i" -ge 240 ]; then
+    warn "Eureka did not respond within 240s — services may need more time."
+fi
+
 # ── Step 6: Summary ───────────────────────────────────────────────────────────
 
 echo ""
