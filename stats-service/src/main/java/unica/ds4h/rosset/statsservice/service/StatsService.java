@@ -45,15 +45,20 @@ public class StatsService {
     }
 
     public PartyStats fallbackStats(Long partyId, Throwable t) {
+        String partyName = "Unknown";
+        String gameType = "Unknown";
         try {
-            String partyUrl = resolveUrl("party-service");
-            Map<?, ?> party = restTemplate.getForObject(partyUrl + "/parties/" + partyId, Map.class);
-            String partyName = party != null ? (String) party.get("name") : "Unknown";
-            String gameType = party != null ? (String) party.get("gameType") : "Unknown";
-            return new PartyStats(partyName, gameType, -1);
-        } catch (Exception e) {
-            return new PartyStats("Unknown", "Unknown", -1);
-        }
+            List<ServiceInstance> instances = discoveryClient.getInstances("party-service");
+            if (!instances.isEmpty()) {
+                String partyUrl = instances.get(0).getUri().toString();
+                Map<?, ?> party = restTemplate.getForObject(partyUrl + "/parties/" + partyId, Map.class);
+                if (party != null) {
+                    partyName = (String) party.get("name");
+                    gameType = (String) party.get("gameType");
+                }
+            }
+        } catch (Exception ignored) {}
+        return new PartyStats(partyName, gameType, -1);
     }
 
     private String resolveUrl(String serviceName) {
