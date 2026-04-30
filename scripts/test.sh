@@ -195,11 +195,14 @@ section "Stats Service — Resilience4j fallback"
 
 log "Scaling down player-service to 0..."
 kubectl scale deployment player-service --replicas=0 >/dev/null
-# Kill port-forward for player-service so connections fail immediately
 pkill -f 'port-forward svc/player-service' 2>/dev/null || true
-# Wait for Eureka to deregister player-service (heartbeat timeout ~30s)
 log "Waiting for Eureka to deregister player-service (~40s)..."
 sleep 40
+
+# Ensure stats port-forward is alive before the fallback call
+pkill -f 'port-forward svc/stats-service' 2>/dev/null || true
+nohup kubectl port-forward svc/stats-service 8083:8083 >/tmp/pf-stats-service.log 2>&1 &
+sleep 3
 
 if [ -n "$PARTY_ID" ]; then
     STATS=$(http_body "http://localhost:8083/stats/$PARTY_ID")
@@ -214,9 +217,10 @@ fi
 log "Restoring player-service..."
 kubectl scale deployment player-service --replicas=1 >/dev/null
 kubectl rollout status deployment/player-service --timeout=120s >/dev/null
-# Restart port-forward for player-service
 nohup kubectl port-forward svc/player-service 8082:8082 >/tmp/pf-player-service.log 2>&1 &
-sleep 5
+# Wait long enough for player-service to register in Eureka before prometheus test
+log "Waiting for player-service to register in Eureka (~30s)..."
+sleep 30
 
 # ── Step 9: Prometheus ────────────────────────────────────────────────────────
 
