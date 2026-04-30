@@ -1,0 +1,242 @@
+{
+  "id": null,
+  "uid": "gamenight-overview",
+  "title": "GameNight Overview",
+  "tags": ["gamenight"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Requests Rate (per second)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"party-service\"}[1m])",
+          "legendFormat": "party-service - {{uri}} {{method}}",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"player-service\"}[1m])",
+          "legendFormat": "player-service - {{uri}} {{method}}",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"stats-service\"}[1m])",
+          "legendFormat": "stats-service - {{uri}} {{method}}",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 2,
+      "title": "HTTP Response Time P99 (seconds)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{job=\"party-service\"}[1m]))",
+          "legendFormat": "party-service p99",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{job=\"player-service\"}[1m]))",
+          "legendFormat": "player-service p99",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{job=\"stats-service\"}[1m]))",
+          "legendFormat": "stats-service p99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Service Health",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 8, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "up{job=\"party-service\"}",
+          "legendFormat": "party-service",
+          "refId": "A"
+        },
+        {
+          "expr": "up{job=\"player-service\"}",
+          "legendFormat": "player-service",
+          "refId": "B"
+        },
+        {
+          "expr": "up{job=\"stats-service\"}",
+          "legendFormat": "stats-service",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } },
+            { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Total HTTP Requests (all services)",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 8, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(http_server_requests_seconds_count{job=~\"party-service|player-service|stats-service\"})",
+          "legendFormat": "Total Requests",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "blue" }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Circuit Breaker State (stats-service)",
+      "type": "stat",
+      "gridPos": { "x": 16, "y": 8, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "resilience4j_circuitbreaker_state{name=\"playerService\"}",
+          "legendFormat": "playerService CB - {{state}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 6,
+      "title": "HTTP Error Rate (5xx)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{status=~\"5..\",job=\"party-service\"}[1m])",
+          "legendFormat": "party-service 5xx",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{status=~\"5..\",job=\"player-service\"}[1m])",
+          "legendFormat": "player-service 5xx",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{status=~\"5..\",job=\"stats-service\"}[1m])",
+          "legendFormat": "stats-service 5xx",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 7,
+      "title": "JVM Memory Used",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\",job=\"party-service\"}",
+          "legendFormat": "party-service heap",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\",job=\"player-service\"}",
+          "legendFormat": "player-service heap",
+          "refId": "B"
+        },
+        {
+          "expr": "jvm_memory_used_bytes{area=\"heap\",job=\"stats-service\"}",
+          "legendFormat": "stats-service heap",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      }
+    }
+  ]
+}
